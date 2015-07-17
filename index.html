@@ -139,7 +139,7 @@
         if (evt.dragging) {
           return;
         }
-        // var pixel = map.getEventPixel(evt.originalEvent);
+
         var feature = map.forEachFeatureAtPixel(evt.pixel,
             function(feature, layer) {
               return feature;
@@ -159,9 +159,8 @@
         }
       });
 
-      var pointsVector = new ol.source.Vector({wrapX: false});
       // Map Functions
-      function createVectorLayer(layer_name, source, style) {
+      function createVectorLayer(layer_name, source) {
         // create a vector layer used for editing
         var vector_layer = new ol.layer.Vector({
           name: layer_name.toString(),
@@ -184,15 +183,7 @@
         return point;
       }
 
-      function getArcApex(startPoint, endPoint) {
-        var start = {
-          x: startPoint.getCoordinates()[0],
-          y: startPoint.getCoordinates()[1]
-        };
-        var end = {
-          x: endPoint.getCoordinates()[0],
-          y: endPoint.getCoordinates()[1]
-        };
+      function getArcApex(start, end) {
         var generator = new arc.GreatCircle(start, end, {
           'name': ''
         });
@@ -206,13 +197,14 @@
 
       function getMidCoord(coordinates) {
         var middleIndex = coordinates.length/2 - 1;
-        var apex = coordinates[middleIndex];
+        var apex = coordinates[Math.floor(middleIndex)];
         return apex;
       }
 
       function createArcBetweenPoints(pointA, pointB, layer, name) {
         var transformedA = pointA.transform('EPSG:3857', 'EPSG:4326');
         var transformedB = pointB.transform('EPSG:3857', 'EPSG:4326');
+
         var start = {
           x: transformedA.getCoordinates()[0],
           y: transformedA.getCoordinates()[1]
@@ -227,64 +219,78 @@
         var line = generator.Arc(100, {
           offset: 10
         });
-        var coordinates = line.geometries[0].coords;
-        var apex = getArcApex(pointA, pointB);
 
-        var apexFeature = plotApex(apex, 'apex', pointsVector);
-        var apexGeom = apexFeature.getGeometry();
-        var lineString = new ol.geom.LineString(coordinates);
+        var features = [];
 
-        var geom = lineString.transform('EPSG:4326', 'EPSG:3857');
-        var feature = new ol.Feature({
-          'geometry': geom
+        // if(line.geometries > 2){
+        line.geometries.forEach(function(d){
+          var coordinates = d.coords;
+          var start_coordinate = getCoordinate(coordinates[0]);
+          var end_coordinate = getCoordinate(coordinates[coordinates.length-1]);
+
+          var apex = getArcApex(start_coordinate, end_coordinate);
+          var apexFeature = plotApex(apex, 'apex');
+          var apexGeom = apexFeature.getGeometry();
+          var lineString = new ol.geom.LineString(coordinates);
+          var geom = lineString.transform('EPSG:4326', 'EPSG:3857');
+          var feature = new ol.Feature({
+            'geometry': geom
+          });
+
+          //Adds an arrow
+          var dx = end_coordinate.x - start_coordinate.x;
+          var dy = end_coordinate.y - start_coordinate.y;
+          var rotation = Math.atan2(dy, dx);
+          var svg = d3.select("canvas").append("svg")
+            .attr("viewBox","-10 0 10 10")
+            .attr("width","20")
+            .attr("height","20")
+            .data([{color:color(name)}]);
+
+          svg.append("svg:polygon")
+            .attr("points","0,10 5 , 8 10 , 10 5 , 0 0 ,10")
+            .attr("transform","rotate(90)")
+            .style("fill", function(d){return d.color});
+
+          var svgData = new XMLSerializer().serializeToString(svg.node());
+          var imgsrc = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(svgData)));
+          d3.selectAll("svg").remove();
+
+          var lineStyles = [
+            // linestring
+            new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: color(name),
+                width: 2
+              })
+            }),
+            // arrow
+            new ol.style.Style({
+              geometry: apexGeom,
+              image: new ol.style.Icon({
+                src: imgsrc,
+                anchor: [0.75, 0.5],
+                rotateWithView: false,
+                rotation: -rotation
+              })
+            })
+          ];
+
+          feature.setStyle(lineStyles);
+          features.push(feature);
         });
 
-        //Adds an arrow
-        var dx = end.x - start.x;
-        var dy = end.y - start.y;
-        var rotation = Math.atan2(dy, dx);
-        var svg = d3.select("canvas").append("svg")
-          .attr("viewBox","-10 0 10 10")
-          .attr("width","20")
-          .attr("height","20")
-          .data([{color:color(name)}]);
-
-        svg.append("svg:polygon")
-          .attr("points","0,10 5 , 8 10 , 10 5 , 0 0 ,10")
-          .attr("transform","rotate(90)")
-          .style("fill", function(d){return d.color});
-
-        var svgData = new XMLSerializer().serializeToString(svg.node());
-        var imgsrc = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(svgData)));
-        d3.selectAll("svg").remove();
-
-        var lineStyles = [
-          // linestring
-          new ol.style.Style({
-            stroke: new ol.style.Stroke({
-              color: color(name),
-              width: 2
-            })
-          }),
-          // arrow
-          new ol.style.Style({
-            geometry: apexGeom,
-            image: new ol.style.Icon({
-              src: imgsrc,
-              anchor: [0.75, 0.5],
-              rotateWithView: false,
-              rotation: -rotation
-            })
-          })
-        ];
-
-
-        feature.setStyle(lineStyles);
-
-        return feature;
+        return features;
       }
 
-      function plotApex(coord, name, layer) {
+      function getCoordinate(coord){
+        return {
+          x : coord[0],
+          y : coord[1]
+        };
+      }
+
+      function plotApex(coord, name) {
         var point = projectCoord(coord);
         var feature = new ol.Feature({
           geometry: point,
@@ -310,26 +316,6 @@
       // create vector source to hold point data
       var pointsVector = new ol.source.Vector({wrapX: false});
 
-      // create style for points vector map layer
-      var pointsStyle = new ol.style.Style({
-        fill: new ol.style.Fill({
-          color: '#e66101'
-        }),
-        stroke: new ol.style.Stroke({
-          color: '#fdb863',
-          width: 2
-        }),
-        image: new ol.style.Circle({
-          radius: 5,
-          fill: new ol.style.Fill({
-            color: '#a6dba0'
-          }),
-          stroke: new ol.style.Stroke({
-            color: '#008837',
-            width: 2
-          })
-        })
-      });
 
       function getPointStyle(color){
         var scale = [1.0,0.75,0.1,2.0];
@@ -355,30 +341,19 @@
       }
 
       // create a vector map layer used for showing points
-      var points_map_layer = createVectorLayer('Points', pointsVector, pointsStyle);
+      var points_map_layer = createVectorLayer('Points', pointsVector);
       //Add the vector layer to the map
       map.addLayer(points_map_layer);
-
-      // create style for points vector map layer
-      var arcStyle = new ol.style.Style({
-        fill: new ol.style.Fill({
-          color: '#e66101'
-        }),
-        stroke: new ol.style.Stroke({
-          color: '#fdb863',
-          width: 1
-        })
-      });
-
-      function CenterMap(lon, lat,zoom) {
+      function setCenterMap(lon, lat,zoom) {
         var view = map.getView();
         view.setCenter(ol.proj.transform([lon, lat], 'EPSG:4326', 'EPSG:3857'));
         view.setZoom(zoom);
       }
 
       var arcsVector = new ol.source.Vector({wrapX: false});
+      var arcsVector2 = new ol.source.Vector({wrapX: false});
       // create a vector map layer used for showing points
-      var arcs_map_layer = createVectorLayer('Arcs', arcsVector, arcStyle);
+      var arcs_map_layer = createVectorLayer('Arcs', arcsVector);
       map.addLayer(arcs_map_layer);
       mapUpdate(0);
 
@@ -394,10 +369,12 @@
             plotPoint([d.lon, d.lat], d.country, pointsVector);
             var export_point = projectCoord([d.lon, d.lat]);
             var import_point = projectCoord([inport.lon, inport.lat]);
-            var arcFeature = createArcBetweenPoints(import_point,export_point,arcsVector,d.country);
-            arcsVector.addFeature(arcFeature);
+            var arcFeatures = createArcBetweenPoints(import_point,export_point,arcsVector,d.country);
+            arcFeatures.forEach(function(d){
+              arcsVector.addFeature(d);
+            });
           });
-          CenterMap(inport.lon, inport.lat, 3);
+          setCenterMap(inport.lon, inport.lat, 3);
         });
       }
 
@@ -417,7 +394,7 @@
         mapUpdate(2);
       });
       $("#changeCenter").on("click",function(e){
-        CenterMap(0, 0, 2);
+        setCenterMap(0, 0, 2);
       });
     }
 </script>
