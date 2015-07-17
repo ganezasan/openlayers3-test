@@ -5,12 +5,11 @@
     <title>External map layers</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-    <script type="text/javascript" src="https://maps.google.com/maps/api/js?sensor=false&amp;v=3.2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ol3/3.7.0/ol.css" type="text/css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ol3/3.7.0/ol.js"></script>
     <script src="http://d3js.org/d3.v3.min.js"></script>
-    <script src="http://d3js.org/topojson.v1.min.js"></script>
     <script src="http://dbsgeo.com/arc.js/arc.js"></script>
+    <script src="sourceMap.js"></script>
     <style>
       body { margin:0; padding:0; }
       #map {
@@ -110,292 +109,49 @@
     </div>
   </body>
   <script type="text/javascript">
-    init();
-    function init() {
-      var projection = ol.proj.get('EPSG:3857');
-      var color = d3.scale.category10();
-
-      var map = new ol.Map({
-        target: 'map',
-        layers: [
-          new ol.layer.Tile({
-            source: new ol.source.XYZ({
-              url: 'http://api.tiles.mapbox.com/v4/bpurcell.map-im7uxt8h/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFuYWdlciIsImEiOiJmNWFhMWZlZjY0OTA2MTFkOTE1Mzg3MzJkZDlhY2FjMyJ9.PhwEUFo5M4zWREzE3Gvgow',
-            }),
-            extent: projection.getExtent(),
-          })
-        ],
-        view: new ol.View({
-          center: [0, 0],
-          projection: projection,
-          extent: projection.getExtent(),
-          zoom: 3,
-          minZoom: 2,
-          maxZoom: 5
-        })
-      });
-
-      map.on('pointermove', function(evt) {
-        if (evt.dragging) {
-          return;
-        }
-
-        var feature = map.forEachFeatureAtPixel(evt.pixel,
-            function(feature, layer) {
-              return feature;
-            });
-        var dialog = $("#dialog");
-        // Featureがあった場合、詳細を表示
-        if (feature) {
-          var iri = feature.get("name")
-          var lon = feature.get("lon")
-          var lat = feature.get("lat")
-          dialog.find(".title").text(iri);
-          dialog.find(".placename").text(lon+"/"+lat);
-          dialog.offset({ top:evt.pixel[1],left: evt.pixel[0]});
-          dialog.show();
-        }else{
-          dialog.hide();
-        }
-      });
-
-      // Map Functions
-      function createVectorLayer(layer_name, source) {
-        // create a vector layer used for editing
-        var vector_layer = new ol.layer.Vector({
-          name: layer_name.toString(),
-          source: source,
-        });
-        return vector_layer;
+    var map = $.sourceMap.init("map");
+    map.on('pointermove', function(evt) {
+      if (evt.dragging) {
+        return;
       }
 
-      function addFeature(point, name, layer) {
-        var feature = new ol.Feature({
-          geometry: point,
-          name: name
-        });
-        layer.addFeature(feature);
-      }
-
-      function projectCoord(coordinate) {
-        var coord = ol.proj.transform(coordinate, 'EPSG:4326', 'EPSG:3857');
-        var point = new ol.geom.Point(coord);
-        return point;
-      }
-
-      function getArcApex(start, end) {
-        var generator = new arc.GreatCircle(start, end, {
-          'name': ''
-        });
-        var line = generator.Arc(100, {
-          offset: 10
-        });
-        var coordinates = line.geometries[0].coords;
-        var apex = getMidCoord(coordinates);
-        return apex;
-      }
-
-      function getMidCoord(coordinates) {
-        var middleIndex = coordinates.length/2 - 1;
-        var apex = coordinates[Math.floor(middleIndex)];
-        return apex;
-      }
-
-      function createArcBetweenPoints(pointA, pointB, layer, name) {
-        var transformedA = pointA.transform('EPSG:3857', 'EPSG:4326');
-        var transformedB = pointB.transform('EPSG:3857', 'EPSG:4326');
-
-        var start = {
-          x: transformedA.getCoordinates()[0],
-          y: transformedA.getCoordinates()[1]
-        };
-        var end = {
-          x: transformedB.getCoordinates()[0],
-          y: transformedB.getCoordinates()[1]
-        };
-        var generator = new arc.GreatCircle(start, end, {
-          'name': ''
-        });
-        var line = generator.Arc(100, {
-          offset: 10
-        });
-
-        var features = [];
-
-        // if(line.geometries > 2){
-        line.geometries.forEach(function(d){
-          var coordinates = d.coords;
-          var start_coordinate = getCoordinate(coordinates[0]);
-          var end_coordinate = getCoordinate(coordinates[coordinates.length-1]);
-
-          var apex = getArcApex(start_coordinate, end_coordinate);
-          var apexFeature = plotApex(apex, 'apex');
-          var apexGeom = apexFeature.getGeometry();
-          var lineString = new ol.geom.LineString(coordinates);
-          var geom = lineString.transform('EPSG:4326', 'EPSG:3857');
-          var feature = new ol.Feature({
-            'geometry': geom
+      var feature = map.forEachFeatureAtPixel(evt.pixel,
+          function(feature, layer) {
+            return feature;
           });
-
-          //Adds an arrow
-          var dx = end_coordinate.x - start_coordinate.x;
-          var dy = end_coordinate.y - start_coordinate.y;
-          var rotation = Math.atan2(dy, dx);
-          var svg = d3.select("canvas").append("svg")
-            .attr("viewBox","-10 0 10 10")
-            .attr("width","20")
-            .attr("height","20")
-            .data([{color:color(name)}]);
-
-          svg.append("svg:polygon")
-            .attr("points","0,10 5 , 8 10 , 10 5 , 0 0 ,10")
-            .attr("transform","rotate(90)")
-            .style("fill", function(d){return d.color});
-
-          var svgData = new XMLSerializer().serializeToString(svg.node());
-          var imgsrc = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(svgData)));
-          d3.selectAll("svg").remove();
-
-          var lineStyles = [
-            // linestring
-            new ol.style.Style({
-              stroke: new ol.style.Stroke({
-                color: color(name),
-                width: 2
-              })
-            }),
-            // arrow
-            new ol.style.Style({
-              geometry: apexGeom,
-              image: new ol.style.Icon({
-                src: imgsrc,
-                anchor: [0.75, 0.5],
-                rotateWithView: false,
-                rotation: -rotation
-              })
-            })
-          ];
-
-          feature.setStyle(lineStyles);
-          features.push(feature);
-        });
-
-        return features;
+      var dialog = $("#dialog");
+      // Featureがあった場合、詳細を表示
+      if (feature) {
+        var iri = feature.get("name")
+        var lon = feature.get("lon")
+        var lat = feature.get("lat")
+        dialog.find(".title").text(iri);
+        dialog.find(".placename").text(lon+"/"+lat);
+        dialog.offset({ top:evt.pixel[1],left: evt.pixel[0]});
+        dialog.show();
+      }else{
+        dialog.hide();
       }
+    });
 
-      function getCoordinate(coord){
-        return {
-          x : coord[0],
-          y : coord[1]
-        };
-      }
+    var map_data;
+    d3.json("map.json", function(data){
+      map_data = data;
+      var json = data[2];
+      $.sourceMap.updateMap(json);
+    });
 
-      function plotApex(coord, name) {
-        var point = projectCoord(coord);
-        var feature = new ol.Feature({
-          geometry: point,
-          name: name
-        });
-        //layer.addFeature(feature);
-        return feature;
-      }
-
-      function plotPoint(coord, name, layer) {
-        var point = projectCoord(coord);
-        var feature = new ol.Feature({
-          geometry: point,
-          name: name,
-          lon: coord[0],
-          lat: coord[1],
-        });
-        feature.setStyle(getPointStyle(color(name)));
-        layer.addFeature(feature);
-        return feature;
-      }
-
-      // create vector source to hold point data
-      var pointsVector = new ol.source.Vector({wrapX: false});
-
-
-      function getPointStyle(color){
-        var scale = [1.0,0.75,0.1,2.0];
-        return new ol.style.Style({
-          fill: new ol.style.Fill({
-            color: '#e66101'
-          }),
-          stroke: new ol.style.Stroke({
-            color: '#fdb863',
-            width: 2
-          }),
-          image: new ol.style.Circle({
-            radius: scale[Math.floor( Math.random() * 4)]*10,
-            fill: new ol.style.Fill({
-              color: color,
-            }),
-            stroke: new ol.style.Stroke({
-              color: color,
-              width: 5
-            })
-          })
-        });
-      }
-
-      // create a vector map layer used for showing points
-      var points_map_layer = createVectorLayer('Points', pointsVector);
-      //Add the vector layer to the map
-      map.addLayer(points_map_layer);
-      function setCenterMap(lon, lat,zoom) {
-        var view = map.getView();
-        view.setCenter(ol.proj.transform([lon, lat], 'EPSG:4326', 'EPSG:3857'));
-        view.setZoom(zoom);
-      }
-
-      var arcsVector = new ol.source.Vector({wrapX: false});
-      var arcsVector2 = new ol.source.Vector({wrapX: false});
-      // create a vector map layer used for showing points
-      var arcs_map_layer = createVectorLayer('Arcs', arcsVector);
-      map.addLayer(arcs_map_layer);
-      mapUpdate(0);
-
-      function mapUpdate(num){
-        d3.json("map.json", function(data){
-          var json = data[num];
-          var inport = json.import;
-          plotPoint([inport.lon, inport.lat], inport.country, pointsVector);
-          var exports = json.exports;
-
-          // Draw the arc
-          exports.forEach(function(d){
-            plotPoint([d.lon, d.lat], d.country, pointsVector);
-            var export_point = projectCoord([d.lon, d.lat]);
-            var import_point = projectCoord([inport.lon, inport.lat]);
-            var arcFeatures = createArcBetweenPoints(import_point,export_point,arcsVector,d.country);
-            arcFeatures.forEach(function(d){
-              arcsVector.addFeature(d);
-            });
-          });
-          setCenterMap(inport.lon, inport.lat, 3);
-        });
-      }
-
-      $("#changeMap1").on("click",function(e){
-        pointsVector.clear();
-        arcsVector.clear();
-        mapUpdate(0);
-      });
-      $("#changeMap2").on("click",function(e){
-        pointsVector.clear();
-        arcsVector.clear();
-        mapUpdate(1);
-      });
-      $("#changeMap3").on("click",function(e){
-        pointsVector.clear();
-        arcsVector.clear();
-        mapUpdate(2);
-      });
-      $("#changeCenter").on("click",function(e){
-        setCenterMap(0, 0, 2);
-      });
-    }
+    $("#changeMap1").on("click",function(e){
+      $.sourceMap.updateMap(map_data[0]);
+    });
+    $("#changeMap2").on("click",function(e){
+      $.sourceMap.updateMap(map_data[1]);
+    });
+    $("#changeMap3").on("click",function(e){
+      $.sourceMap.updateMap(map_data[2]);
+    });
+    $("#changeCenter").on("click",function(e){
+      $.sourceMap.setCenterMap(0, 0, 2);
+    });
 </script>
 </html>
