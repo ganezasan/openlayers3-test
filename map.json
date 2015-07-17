@@ -1,0 +1,113 @@
+[
+  {
+    "import" : {
+      "country": "South Korea",
+      "lat":36.3681755333333,
+      "lon":127.680019991667
+    },
+    "exports" : [
+      {
+        "country":"Australia",
+        "lat":-32.8388248774272,
+        "lon":143.750447796116,
+        "price":100
+      },
+      {
+        "country":"Brunei",
+        "lat":4.731392,
+        "lon":114.6329468,
+        "price":100
+      },    {
+        "country":"Cambodia",
+        "lat":12.3011590909091,
+        "lon":104.520676636364,
+        "price":100
+      },    {
+        "country":"China",
+        "lat":33.6482393372548,
+        "lon":115.935792057843,
+        "price":100
+      },
+      {
+        "country":"India",
+        "lat":21.7951634575966,
+        "lon":79.2241944168416,
+        "price":100
+      }
+    ]
+  },
+  {
+    "import" : {
+      "country":"Laos",
+      "lat":18.1322161363636,
+      "lon":103.628979454545
+    },
+    "exports" : [
+      {
+        "country":"Australia",
+        "lat":-32.8388248774272,
+        "lon":143.750447796116,
+        "price":100
+      },
+      {
+        "country":"Brunei",
+        "lat":4.731392,
+        "lon":114.6329468,
+        "price":100
+      },    {
+        "country":"Cambodia",
+        "lat":12.3011590909091,
+        "lon":104.520676636364,
+        "price":100
+      },    {
+        "country":"China",
+        "lat":33.6482393372548,
+        "lon":115.935792057843,
+        "price":100
+      },
+      {
+        "country":"India",
+        "lat":21.7951634575966,
+        "lon":79.2241944168416,
+        "price":100
+      }
+    ]
+  },
+  {
+    "import" : {
+      "country":"Malaysia",
+      "lat":3.84422648648649,
+      "lon":104.034492527027
+    },
+    "exports" : [
+      {
+        "country":"Australia",
+        "lat":-32.8388248774272,
+        "lon":143.750447796116,
+        "price":100
+      },
+      {
+        "country":"Brunei",
+        "lat":4.731392,
+        "lon":114.6329468,
+        "price":100
+      },    {
+        "country":"Cambodia",
+        "lat":12.3011590909091,
+        "lon":104.520676636364,
+        "price":100
+      },    {
+        "country":"China",
+        "lat":33.6482393372548,
+        "lon":115.935792057843,
+        "price":100
+      },
+      {
+        "country":"India",
+        "lat":21.7951634575966,
+        "lon":79.2241944168416,
+        "price":100
+      }
+    ]
+  }
+]
