@@ -14,8 +14,8 @@
       body { margin:0; padding:0; }
       #map {
         position: relative;
-        width: 1090px;
-        height: 615px;
+        width: 700px;
+        height: 500px;
         margin: 0 auto;
         -moz-user-select: -moz-none;
         -khtml-user-select: none;
@@ -28,7 +28,7 @@
         position: absolute;
         top: 72px;
         right: 37px;
-        width: 411px;
+        width: 311px;
         display: none;
         z-index: 1012;
         padding: 0px;
@@ -95,15 +95,9 @@
     <div id='map'>
       <div id="dialog" style="display: block;">
         <div id="dialog-content">
-          <h2 class="title" title="Customers">Customers
-            <div class="dot" style="cursor: pointer; background: rgb(226, 169, 25);"></div>
-          </h2>
+          <h2 class="title" title="Customers">Customers</h2>
           <h3 class="placename">United Kingdom</h3>
-          <div class="accordion">
-            <div class="close">
-              <a href="javascript: void(0);"></a>
-            </div>
-          </div>
+          <ul class="exports"></ul>
         </div>
       </div>
     </div>
@@ -122,13 +116,27 @@
       var dialog = $("#dialog");
       // Featureがあった場合、詳細を表示
       if (feature) {
-        var iri = feature.get("name")
-        var lon = feature.get("lon")
-        var lat = feature.get("lat")
+        var iri = feature.get("name");
+        var price = feature.get("price");
+        var type = feature.get("type");
+        var exports = feature.get("data");
         dialog.find(".title").text(iri);
-        dialog.find(".placename").text(lon+"/"+lat);
-        dialog.offset({ top:evt.pixel[1],left: evt.pixel[0]});
-        dialog.show();
+
+        if(type === "export" || price !== undefined){
+          dialog.find(".exports").css("display","none");
+          dialog.find(".placename").text("price: "+ price).css("display","block");
+        }else{
+          dialog.find(".placename").css("display","none");
+          d3.select(".exports").attr("style","display:block;")
+            .selectAll('li')
+            .data(exports)
+            .enter()
+            .append('li')
+            .text(function(d){ return d.country + " : " + d.price });
+        }
+        // dialog.offset({ top:evt.pixel[1],left: evt.pixel[0]});
+        dialog.offset({ top:evt.b.clientY,left:evt.b.clientX});
+        dialog.show({modal:true});
       }else{
         dialog.hide();
       }

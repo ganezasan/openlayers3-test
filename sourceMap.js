@@ -4,8 +4,8 @@
       arcsVector,
       color = d3.scale.category10(),
       maxZoom = 5,
-      minZoom = 2,
-      zoom = 3;
+      minZoom = 1.5,
+      zoom = 0.5;
 
   var init = function(targetId) {
     var projection = ol.proj.get('EPSG:3857');
@@ -45,21 +45,24 @@
 
   var updateMap = function(data){
     clearVector();
-    var inport = data.import;
-    plotPoint([inport.lon, inport.lat], inport.country, pointsVector,getPointStyle(color(inport.country)));
+    var import_data = data.import;
     var exports = data.exports;
+    plotPoint([import_data.lon, import_data.lat],
+      {'name': import_data.country,'price':import_data.price,'type':'import', 'data': exports},
+      pointsVector,
+      getPointStyle(color(import_data.country)));
 
     // Draw the arc
     exports.forEach(function(d){
-      plotPoint([d.lon, d.lat], d.country, pointsVector,getPointStyle(color(d.country)));
+      plotPoint([d.lon, d.lat], {'name': d.country,'price':d.price,'type':'export', 'data': d }, pointsVector,getPointStyle(color(d.country)));
       var export_point = projectCoord([d.lon, d.lat]);
-      var import_point = projectCoord([inport.lon, inport.lat]);
+      var import_point = projectCoord([import_data.lon, import_data.lat]);
       var arcFeatures = createArcBetweenPoints(import_point,export_point,arcsVector,d.country);
       arcFeatures.forEach(function(d){
         arcsVector.addFeature(d);
       });
     });
-    setCenterMap(inport.lon, inport.lat, 3);
+    setCenterMap(import_data.lon, import_data.lat, 3);
   };
 
   var setCenterMap = function(lon, lat, zoom){
@@ -206,7 +209,6 @@
       .attr("points","0,10 5 , 8 10 , 10 5 , 0 0 ,10")
       .attr("transform","rotate(90)")
       .style("fill", function(d){return d.color;});
-    console.warn(svg);
 
     var svgData = new XMLSerializer().serializeToString(svg.node());
     var imgsrc = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(svgData)));
@@ -230,13 +232,16 @@
     return feature;
   }
 
-  function plotPoint(coord, name, layer, style) {
+  function plotPoint(coord, d, layer, style) {
     var point = projectCoord(coord);
     var feature = new ol.Feature({
-      geometry: point,
-      name: name,
-      lon: coord[0],
-      lat: coord[1],
+      'geometry': point,
+      'name': d.name,
+      'lon': coord[0],
+      'lat': coord[1],
+      'price' : d.price,
+      'type' : d.type,
+      'data' : d.data
     });
     feature.setStyle(style);
     layer.addFeature(feature);
@@ -244,11 +249,9 @@
   }
 
   function getPointStyle(color){
-    // var scale = [1.0,0.75,0.1,2.0];
     return new ol.style.Style({
       image: new ol.style.Circle({
-        // radius: scale[Math.floor( Math.random() * 4)]*10,
-        radius: 5,
+        radius: 10,
         fill: new ol.style.Fill({
           color: color,
         }),
